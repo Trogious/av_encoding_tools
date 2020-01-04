@@ -5,10 +5,12 @@ import subprocess
 import dbus
 
 ENCODING = 'utf8'
+PROGRESS_DIALOG = 'org.kde.kdialog.ProgressDialog'
+DBUS_PROPS = 'org.freedesktop.DBus.Properties'
 RE_BITRATE = re.compile('bitrate: \\d+ [a-zA-Z]')
 # Stream #0:0(eng): Video: h264
 RE_STREAM = re.compile('Stream #\\d:\\d\\([a-z][a-z][a-z]\\): [a-zA-Z0-9_]+: [a-zA-Z0-9_]+')
-RE_AUDIO_CODECS_PRIORITY = ['truehd', 'dts', 'aac', 'ac3', 'mp3']
+RE_AUDIO_CODECS_PRIORITY = ['truehd', 'dts', 'aac', 'eac3', 'ac3', 'mp3']
 
 
 class MediaContainer:
@@ -91,31 +93,34 @@ class Prober:
 
 
 class KDialogProgressBar:
-    def __init__(self):
-        self.bus_name = None
-        self.object_path = None
+    def __init__(self, bus_name=None, object_path=None):
+        self.bus_name = bus_name
+        self.object_path = object_path
         self.props_mgr = None
         self.proxy = None
 
     def open(self, max_progress, label=None):
-        cmd = ['/usr/bin/kdialog', '--progressbar', 'test', str(max_progress)]
-        self.bus_name, self.object_path = [x.strip() for x in run_in_shell(cmd)[1].split(' ')]
-        bus = dbus.SessionBus()
-        self.proxy = bus.get_object(self.bus_name, self.object_path)
-        self.props_mgr = dbus.Interface(self.proxy, 'org.freedesktop.DBus.Properties')
-        self.props_mgr.Set('org.kde.kdialog.ProgressDialog', 'autoClose', True)
+        if None in [self.bus_name, self.object_path]:
+            cmd = ['/usr/bin/kdialog', '--progressbar', 'Progress', str(max_progress)]
+            self.bus_name, self.object_path = [x.strip() for x in run_in_shell(cmd)[1].split(' ')]
+        self.proxy = dbus.SessionBus().get_object(self.bus_name, self.object_path)
+        self.props_mgr = dbus.Interface(self.proxy, DBUS_PROPS)
+        self.props_mgr.Set(PROGRESS_DIALOG, 'autoClose', True)
         if label:
-            dialog = dbus.Interface(self.proxy, 'org.kde.kdialog.ProgressDialog')
+            dialog = dbus.Interface(self.proxy, PROGRESS_DIALOG)
             dialog.setLabelText(KDialogProgressBar.format_label_text(label))
 
     def update(self, seconds, label=None):
-        self.props_mgr.Set('org.kde.kdialog.ProgressDialog', 'value', seconds)
+        self.props_mgr.Set(PROGRESS_DIALOG, 'value', seconds)
         if label:
-            dialog = dbus.Interface(self.proxy, 'org.kde.kdialog.ProgressDialog')
+            dialog = dbus.Interface(self.proxy, PROGRESS_DIALOG)
             dialog.setLabelText(KDialogProgressBar.format_label_text(label))
 
     def close(self):
-        self.proxy.close()
+        try:
+            self.proxy.close()
+        except Exception:
+            pass
 
     @staticmethod
     def format_label_text(text):

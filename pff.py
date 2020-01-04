@@ -21,12 +21,12 @@ def usage():
     print_out('Usage: ' + sys.argv[0] + ' <ffmpeg_args>\n')
 
 
-def extract_time_str(time_str):
+def extract_time_str(time_bytes):
     # time_str example: frame=  399 fps=0.0 q=10.0 size=    1531kB time=00:00:16.57 bitrate= 756.5kbits/s speed=33.1x
-    i = time_str.find(b'time=')
+    i = time_bytes.find(b'time=')
     if i >= 0:
-        return time_str[i+5:i+13].decode(ENCODING)  # 00:00:16
-    return time_str
+        return time_bytes[i+5:i+13].decode(ENCODING)  # 00:00:16
+    return None
 
 
 def get_seconds(time_str):
@@ -39,7 +39,7 @@ def ffmpeg(args, progress_bar=None):
     cmd = ['/usr/bin/ffmpeg'] + args
     cmd = ['/usr/bin/script', '-qefc', ' '.join(cmd), '/dev/null']
     print(' '.join(cmd))
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p:
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE) as p:
         line = b''
         while True:
             buf = os.read(p.stdout.fileno(), BUF_LEN)
@@ -47,16 +47,22 @@ def ffmpeg(args, progress_bar=None):
                 break
             i = buf.find(b'\n')
             if i >= 0:
-                print_out(line + buf[:i+1])
+                line_with_buf = line + buf[:i+1]
+                print_out(line_with_buf)
+                if progress_bar:
+                    time_str = extract_time_str(line_with_buf)
+                    if time_str:
+                        progress_bar.update(get_seconds(time_str))
                 line = buf[i+1:]
             else:
                 j = buf.find(b'\r')
                 if j >= 0:
-                    time_str = line + buf[:j]
-                    seconds = get_seconds(extract_time_str(time_str))
-                    print_out(b'\r' + time_str)
+                    time_bytes = line + buf[:j+1]
+                    print_out(time_bytes)
                     if progress_bar:
-                        progress_bar.update(seconds)
+                        time_str = extract_time_str(time_bytes)
+                        if time_str:
+                            progress_bar.update(get_seconds(time_str))
                     line = buf[j+1:]
                 else:
                     line += buf
@@ -64,8 +70,8 @@ def ffmpeg(args, progress_bar=None):
 
 
 def main():
-    subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
-    print_out(b"\x1b[1;%dm" % (31) + b"colors test" + b"\x1b[0m")
+    # subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
+    # print_out(b"\x1b[1;%dm" % (31) + b"colors test" + b"\x1b[0m")
     print()
     if len(sys.argv) < 2:
         usage()
