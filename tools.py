@@ -1,4 +1,5 @@
 import json
+import os
 import re
 import subprocess
 
@@ -11,6 +12,8 @@ RE_BITRATE = re.compile('bitrate: \\d+ [a-zA-Z]')
 # Stream #0:0(eng): Video: h264
 RE_STREAM = re.compile('Stream #\\d:\\d\\([a-z][a-z][a-z]\\): [a-zA-Z0-9_]+: [a-zA-Z0-9_]+')
 RE_AUDIO_CODECS_PRIORITY = ['truehd', 'dts', 'aac', 'eac3', 'ac3', 'mp3']
+PFF_BUS_NAME = os.getenv('PFF_BUS_NAME')
+PFF_OBJECT_PATH = os.getenv('PFF_OBJECT_PATH')
 
 
 class MediaContainer:
@@ -93,34 +96,41 @@ class Prober:
 
 
 class KDialogProgressBar:
-    def __init__(self, bus_name=None, object_path=None):
+    def __init__(self, bus_name=PFF_BUS_NAME, object_path=PFF_OBJECT_PATH):
         self.bus_name = bus_name
         self.object_path = object_path
         self.props_mgr = None
         self.proxy = None
+        self.reuse = True
+        self.initial_value = 0
 
     def open(self, max_progress, label=None):
         if None in [self.bus_name, self.object_path]:
             cmd = ['/usr/bin/kdialog', '--progressbar', 'Progress', str(max_progress)]
             self.bus_name, self.object_path = [x.strip() for x in run_in_shell(cmd)[1].split(' ')]
+            self.reuse = False
         self.proxy = dbus.SessionBus().get_object(self.bus_name, self.object_path)
         self.props_mgr = dbus.Interface(self.proxy, DBUS_PROPS)
         self.props_mgr.Set(PROGRESS_DIALOG, 'autoClose', True)
         if label:
             dialog = dbus.Interface(self.proxy, PROGRESS_DIALOG)
             dialog.setLabelText(KDialogProgressBar.format_label_text(label))
+        if self.reuse:
+            self.initial_value = max(0, self.props_mgr.Get(PROGRESS_DIALOG, 'value'))
 
     def update(self, seconds, label=None):
+        seconds += self.initial_value
         self.props_mgr.Set(PROGRESS_DIALOG, 'value', seconds)
         if label:
             dialog = dbus.Interface(self.proxy, PROGRESS_DIALOG)
             dialog.setLabelText(KDialogProgressBar.format_label_text(label))
 
     def close(self):
-        try:
-            self.proxy.close()
-        except Exception:
-            pass
+        if not self.reuse:
+            try:
+                self.proxy.close()
+            except Exception:
+                pass
 
     @staticmethod
     def format_label_text(text):
