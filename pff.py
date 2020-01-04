@@ -70,9 +70,6 @@ def ffmpeg(args, progress_bar=None):
 
 
 def main():
-    # subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
-    # print_out(b"\x1b[1;%dm" % (31) + b"colors test" + b"\x1b[0m")
-    print()
     if len(sys.argv) < 2:
         usage()
     else:
