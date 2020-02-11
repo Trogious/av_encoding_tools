@@ -5,7 +5,9 @@ import subprocess
 import sys
 from threading import Lock, Thread
 
-ENCODING = 'utf-8'
+from mpff import VALID_EXTENSIONS, get_file_extension
+
+ENCODING = 'utf8'
 RE_BITRATE = re.compile('bitrate: \\d+ [a-zA-Z]')
 
 YUP_stderr_lock = Lock()
@@ -62,10 +64,17 @@ def reencode(old_file, new_file):
         elif out is not None:
             br_data = get_bitrate(out)
         if br_data is not None:
-            cmd = ['/usr/bin/ffmpeg', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow',
-                   '-b:v', br_data[0], '-maxrate:v', br_data[1], '-pix_fmt', 'yuv420p', '-c:a', 'copy', new_file]
+            cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow',
+                   '-b:v', br_data[0], '-pix_fmt', 'yuv420p', '-maxrate:v', br_data[0], '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a', '-c:s', 'copy', '-map', '0:s',
+                   '-map_chapters', '0', new_file]
             log(' '.join(cmd))
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
+                while True:
+                    buf = os.read(p_reencode.stdout.fileno(), 4096)
+                    if buf == b'' and p_reencode.poll() is not None:
+                        break
+                    sys.stdout.write(buf.decode(ENCODING))
+                    sys.stdout.flush()
                 p_reencode.communicate()
                 if p_reencode.returncode == 0:
                     log('re-encoding done')
@@ -81,9 +90,13 @@ def main():
     else:
         subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
         for orig_file_path in sys.argv[1:]:
-            if (orig_file_path.endswith('.mkv') or orig_file_path.endswith('.mp4')) and os.path.isfile(orig_file_path):
+            ext = get_file_extension(orig_file_path)
+            if ext in VALID_EXTENSIONS and os.path.isfile(orig_file_path):
+                if orig_file_path[:-len(ext)-1].endswith('_mpeg2'):
+                    new_file_path = orig_file_path.replace('_mpeg2', '_h264')
+                else:
+                    new_file_path = orig_file_path.replace('.mkv', '_h264.mkv').replace('.mp4', '_h264.mkv')
                 try:
-                    new_file_path = orig_file_path.replace('.mkv', '_2.mkv').replace('.mp4', '_2.mkv')
                     if os.path.exists(new_file_path):
                         log('output already exists: ' + new_file_path)
                     else:
