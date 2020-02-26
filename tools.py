@@ -16,6 +16,11 @@ PFF_BUS_NAME = os.getenv('PFF_BUS_NAME')
 PFF_OBJECT_PATH = os.getenv('PFF_OBJECT_PATH')
 
 
+def jl(obj):
+    log_str = json.dumps(obj, sort_keys=True, indent=2, separators=(',', ': '))
+    print(log_str)
+
+
 class MediaContainer:
     def __init__(self, ffmpeg_i_output):
         self.output = ffmpeg_i_output.decode(ENCODING)
@@ -36,7 +41,7 @@ class MediaContainer:
                     return (str(bitrate) + unit, max_bitrate)
         return (0, 'b')
 
-    def get_streams(self):
+    def get_audio_streams(self):
         streams = []
         for line in self.output.splitlines():
             if 'Stream' in line:
@@ -53,8 +58,8 @@ class MediaContainer:
                     streams.append(media)
         return streams
 
-    def get_best_audio_source(self):
-        streams = self.get_streams()
+    def get_best_audio_stream(self):
+        streams = self.get_audio_streams()
         filtered = list(filter(lambda x: x['type'] == 'audio', streams))
         return sorted(filtered, key=lambda x: RE_AUDIO_CODECS_PRIORITY.index(x['codec']))[0]['stream_no']
 
@@ -74,6 +79,7 @@ class Prober:
         self.args = args
         self.file_name = self.extract_input_file_name()
         self._fmt = None
+        self._streams = None
 
     def extract_input_file_name(self):
         i = 0
@@ -82,17 +88,54 @@ class Prober:
             if arg == '-i':
                 return self.args[i]
 
-    def get_format_data(self):
-        if not self._fmt:
-            cmd = ['/usr/bin/ffprobe', '-v', 'quiet', '-print_format', 'json', '-show_format', self.file_name]
+    def get_data(self):
+        if None in [self._fmt, self._streams]:
+            cmd = ['/usr/bin/ffprobe', '-v', 'quiet', '-print_format',
+                   'json', '-show_format', '-show_streams', self.file_name]
+            # print(' '.join(cmd))
             json_str = run_in_shell(cmd)[1]
-            fmt = json.loads(json_str)
-            self._fmt = fmt['format']
+            output = json.loads(json_str)
+            self._fmt = output['format']
+            self._streams = output['streams']
         return self._fmt
 
     def get_duration(self):
-        seconds = int(float(self.get_format_data()['duration']))
+        seconds = int(float(self.get_data()['duration']))
         return seconds
+
+    def get_stream_language(self, stream):
+        lang = None
+        if 'tags' in stream and 'language' in stream['tags']:
+            lang = stream['tags']['language']
+        return lang
+
+    def get_stream_bitrate(self, stream):
+        bitrate = None
+        if 'bit_rate' in stream:
+            bitrate = int(stream['bit_rate'])
+        return bitrate
+
+    def get_audio_streams(self):
+        streams = []
+        self.get_data()
+        audio_i = 0
+        for stream in self._streams:
+            if stream['codec_type'] == 'audio':
+                media = {
+                    'stream_no': audio_i,
+                    'language': self.get_stream_language(stream),
+                    'type': stream['codec_type'],
+                    'codec': stream['codec_name'],
+                    'bitrate': self.get_stream_bitrate(stream)
+                }
+                streams.append(media)
+                audio_i += 1
+        return streams
+
+    def get_best_audio_stream(self):
+        streams = self.get_audio_streams()
+        filtered = list(filter(lambda x: x['type'] == 'audio', streams))
+        return sorted(filtered, key=lambda x: RE_AUDIO_CODECS_PRIORITY.index(x['codec']))[0]
 
 
 class KDialogProgressBar:

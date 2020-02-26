@@ -4,7 +4,10 @@ import subprocess
 import sys
 from threading import Lock, Thread
 
-from tools import MediaContainer
+from mpff import VALID_EXTENSIONS, get_file_extension
+from tools import Prober
+
+ENCODING = 'utf8'
 
 YUP_stderr_lock = Lock()
 YUP_stderr = sys.stderr
@@ -34,34 +37,30 @@ class Uploader(Thread):
 
 
 def reencode(old_file, new_file):
-    cmd = ['/usr/bin/ffmpeg', '-i', old_file]
-    # cmd = ['cat', old_file]
-    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_bitrate:
-        out, err = p_bitrate.communicate()
-        container = None
-        if err:
-            container = MediaContainer(err)
-        elif out:
-            container = MediaContainer(out)
-        if container:
-            print(container.get_bitrate())
-            print(container.get_streams())
-            print(container.get_best_audio_source())
-            print()
-            br_data = container.get_bitrate()
-            as_data = container.get_best_audio_source()
-        if br_data is not None:
-            cmd = ['/usr/bin/ffmpeg', '-hwaccel', 'cuvid', '-i', old_file, '-map_chapters', '0', '-c:v', 'copy', '-map', '0:v:0',
-                   '-c:a', 'aac', '-vbr' '5', '-map', '0:a:' + str(as_data), new_file]
-            log(' '.join(cmd))
-            return
-            with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
-                p_reencode.communicate()
-                if p_reencode.returncode == 0:
-                    log('re-encoding done')
-#                    Uploader(new_file).run()
-                else:
-                    log('re-encoding failed')
+    prober = Prober(['-i', old_file])
+    stream = prober.get_best_audio_stream()
+    if stream is not None and stream['codec'] != 'aac':
+        bitrate = stream['bitrate'] if stream['bitrate'] is not None else '640k'
+        lang = stream['language'] if stream['language'] is not None else 'eng'
+        # -metadata:s:v:0 language=eng
+        cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-map_chapters', '0', '-c:v', 'copy', '-map', '0:v:0',
+               '-c:a', 'aac', '-aac_coder', 'twoloop', '-b:a', str(bitrate), '-map', '0:a:' + str(stream['stream_no']),
+               '-c:s', 'copy', '-map', '0:s?', '-metadata:s:a:' + str(stream['stream_no']), 'language=' + lang, new_file]
+        log(' '.join(cmd))
+        return
+        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
+            while True:
+                buf = os.read(p_reencode.stdout.fileno(), 4096)
+                if buf == b'' and p_reencode.poll() is not None:
+                    break
+                sys.stdout.write(buf.decode(ENCODING))
+                sys.stdout.flush()
+            p_reencode.communicate()
+            if p_reencode.returncode == 0:
+                log('re-encoding done')
+    #                    Uploader(new_file).run()
+            else:
+                log('re-encoding failed')
 
 
 def main():
@@ -71,17 +70,19 @@ def main():
     else:
         subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
         for orig_file_path in sys.argv[1:]:
-            if (orig_file_path.endswith('.mkv') or orig_file_path.endswith('.mp4')) and os.path.isfile(orig_file_path):
+            ext = get_file_extension(orig_file_path)
+            if ext in VALID_EXTENSIONS and os.path.isfile(orig_file_path):
+                new_file_path = orig_file_path[:-len(ext)-1] + '_aac.mkv'
                 try:
-                    new_file_path = orig_file_path.replace('.mkv', '_2.mkv').replace('.mp4', '_2.mkv')
                     if os.path.exists(new_file_path):
                         log('output already exists: ' + new_file_path)
                     else:
                         reencode(orig_file_path, new_file_path)
-                except Exception:
+                except Exception as e:
+                    log(e)
                     raise
             else:
-                log('not mkv file: ' + orig_file_path)
+                log('not a supported file extension: ' + orig_file_path)
 
 
 if __name__ == '__main__':

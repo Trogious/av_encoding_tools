@@ -65,8 +65,8 @@ def reencode(old_file, new_file):
             br_data = get_bitrate(out)
         if br_data is not None:
             cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow',
-                   '-b:v', br_data[0], '-pix_fmt', 'yuv420p', '-maxrate:v', br_data[0], '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a', '-c:s', 'copy', '-map', '0:s',
-                   '-map_chapters', '0', new_file]
+                   '-b:v', br_data[0], '-pix_fmt', 'yuv420p', '-maxrate:v', br_data[0], '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a',
+                   '-c:s', 'copy', '-map', '0:s', '-map_chapters', '0', new_file]
             log(' '.join(cmd))
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
                 while True:
@@ -104,7 +104,7 @@ def main():
                 except Exception as e:
                     log(e)
             else:
-                log('not mkv file: ' + orig_file_path)
+                log('not a supported file extension: ' + orig_file_path)
 
 
 if __name__ == '__main__':

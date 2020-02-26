@@ -35,9 +35,13 @@ def get_seconds(time_str):
     return seconds
 
 
+def shell_escape(text):
+    return text.replace('?', '\\?')
+
+
 def ffmpeg(args, progress_bar=None):
     cmd = ['/usr/bin/ffmpeg'] + args
-    cmd = ['/usr/bin/script', '-qefc', ' '.join(cmd), '/dev/null']
+    cmd = ['/usr/bin/script', '-qefc', shell_escape(' '.join(cmd)), '/dev/null']
     print(' '.join(cmd))
     with subprocess.Popen(cmd, stdout=subprocess.PIPE) as p:
         line = b''

@@ -12,7 +12,8 @@ my $newentry;
 
 my $rename_confirmed = 0;
 my $season = '';
-GetOptions ('yes' => \$rename_confirmed, 'season:s' => \$season);
+my $postfix = '';
+GetOptions ('yes' => \$rename_confirmed, 'season:s' => \$season, 'postfix:s' => \$postfix);
 
 if( opendir($dir,$tdir) )
 {
@@ -91,6 +92,6 @@ sub rename2Episode
 		$seasonEp =~ s/s[0-9]{2}e/E/i;
 	}
 
-	$season.$seasonEp.$extension;
+	$season.$seasonEp.$postfix.$extension;
 }
 
