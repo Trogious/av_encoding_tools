@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-# Removes: HD-bits.ro] from all files name in the directory
+# Removes characters needing escaping from all files name in the directory
 
 use strict;
 
@@ -16,9 +16,6 @@ if( opendir($dir,$tdir) )
 		if( $entry !~ m/^\./ && $entry ne 'rename.pl' )
 		{
 			$newentry = $entry;
-			$newentry =~ s/\[HD-bits\.ro\]//i;
-			$newentry =~ s/%5BHD-bits\.ro%5D\.?//i;
-			$newentry =~ s/\[HDbits\.ro\]//i;
 			$newentry =~ s/[\[\]!#@%\$\^&\*\(\)']//g;
 			$newentry =~ s/  / /g;
 			$newentry =~ s/ /./g;
@@ -35,5 +32,3 @@ if( opendir($dir,$tdir) )
 
 	closedir($dir);
 }
-
-

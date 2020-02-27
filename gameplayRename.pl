@@ -37,9 +37,6 @@ if( opendir($dir,$tdir) )
 	{
 		$newentry = $name.$i.'.mp4';
 		++$i;
-		$newentry =~ s/\[HD-bits\.ro\]//i;
-		$newentry =~ s/%5BHD-bits\.ro%5D\.?//i;
-		$newentry =~ s/\[HDbits\.ro\]//i;
 		$newentry =~ s/[\[\]!#@%\$\^&\*\(\)']//g;
 		$newentry =~ s/  / /g;
 		$newentry =~ s/ /./g;
@@ -49,5 +46,3 @@ if( opendir($dir,$tdir) )
 		rename($entry,$newentry);
 	}
 }
-
-
