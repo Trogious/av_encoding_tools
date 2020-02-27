@@ -47,7 +47,6 @@ def reencode(old_file, new_file):
                '-c:a', 'aac', '-aac_coder', 'twoloop', '-b:a', str(bitrate), '-map', '0:a:' + str(stream['stream_no']),
                '-c:s', 'copy', '-map', '0:s?', '-metadata:s:a:' + str(stream['stream_no']), 'language=' + lang, new_file]
         log(' '.join(cmd))
-        return
         with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
             while True:
                 buf = os.read(p_reencode.stdout.fileno(), 4096)
