@@ -35,13 +35,19 @@ NTS='-avoid_negative_ts 1'
 #CONTAINERS='mkv mp4 avi'
 #CONTAINERS='mp4 avi mov wmv m4v'
 CONTAINERS='mkv'
-
+#HDR='-pix_fmt p010le -colorspace bt2020_ncl -color_primaries bt2020 -color_trc smpte2084'
+#HDR='-pix_fmt yuv420p10le -colorspace bt2020_ncl -color_primaries bt2020 -color_trc smpte2084'
+HDR=''
+LIBX264='libx264 -profile:v high10 -preset veryslow -crf 14 -b:v 85890k'
+HEVC_NVENC_SDR='hevc_nvenc -preset slow -rc vbr_hq -b:v 85890k -colorspace bt709 -color_primaries bt709 -color_trc bt709'
 
 for container in $CONTAINERS
 do
     #OUT_FILE_CONTAINER=`echo $OUT_FILE | sed "s/\.mkv$/\.${container}/"`
     OUT_FILE_CONTAINER=$OUT_FILE
-    CMD="$NICE -n +19 $FFMPEG $LOG_LEVEL -hwaccel cuvid -ss $START_SECS -t $DURATION_SECS -i $IN_FILE $TIME -map_metadata -1 -c:v copy -map 0:v:0 -c:a copy -map 0:a:$AUDIO_TRACK_NO -sn $NTS $OVERWRITE $OUT_FILE_CONTAINER"
+    # aac -b:a 640k -ac 6
+    # -r 59.94
+    CMD="$NICE -n +19 $FFMPEG $LOG_LEVEL  -ss $START_SECS -t $DURATION_SECS -i $IN_FILE $TIME -map_metadata -1 -c:v copy $HDR -map 0:v:0 -c:a copy -map 0:a:$AUDIO_TRACK_NO -sn $NTS $OVERWRITE $OUT_FILE_CONTAINER"
     echo $CMD
     echo
     $CMD

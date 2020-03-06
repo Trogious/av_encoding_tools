@@ -64,9 +64,10 @@ def reencode(old_file, new_file):
         elif out is not None:
             br_data = get_bitrate(out)
         if br_data is not None:
-            cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow',
+            cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow', '-rc', 'vbr_hq',
                    '-b:v', br_data[0], '-pix_fmt', 'yuv420p', '-maxrate:v', br_data[0], '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a',
-                   '-c:s', 'copy', '-map', '0:s', '-map_chapters', '0', new_file]
+                   # '-c:s', 'copy', '-map', '0:s', '-map_chapters', '0', new_file]
+                   '-sn', '-map_chapters', '0', new_file]
             log(' '.join(cmd))
             with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
                 while True:
@@ -78,7 +79,7 @@ def reencode(old_file, new_file):
                 p_reencode.communicate()
                 if p_reencode.returncode == 0:
                     log('re-encoding done')
-#                    Uploader(new_file).run()
+                    Uploader(new_file).run()
                 else:
                     log('re-encoding failed')
 
