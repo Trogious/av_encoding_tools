@@ -2,64 +2,71 @@
 import os
 import subprocess
 import sys
-from threading import Lock, Thread
 
 from mpff import VALID_EXTENSIONS, get_file_extension
-from tools import Prober
+from tools import Prober, Uploader, log
 
 ENCODING = 'utf8'
-
-YUP_stderr_lock = Lock()
-YUP_stderr = sys.stderr
-
-
-def log(log_item):
-    with YUP_stderr_lock:
-        YUP_stderr.write(str(log_item) + '\n')
-        YUP_stderr.flush()
 
 
 def usage():
     log('Usage: ' + sys.argv[0] + ' <mkv_file>\n')
 
 
-class Uploader(Thread):
-    def __init__(self, file):
-        Thread.__init__(self)
-        self.file = file
-
-    def run(self):
-        cmd = ['/home/dupa/tv/s_r2d2.sh', self.file]
-        try:
-            subprocess.run(cmd)
-        except Exception as e:
-            log(e)
+def get_cmd_params(old_file, new_file):
+    prober = Prober(['-i', old_file])
+    stream = prober.get_best_audio_stream()
+    if stream is not None:
+        bitrate = stream['bitrate'] if stream['bitrate'] is not None else '640k'
+        if int(bitrate) > 640000:
+            bitrate = '640k'
+        lang = stream['language'] if stream['language'] is not None else 'eng'
+        if stream['channels'] is not None:
+            chan_no = int(stream['channels'])
+            if chan_no > 6:
+                chan_no = 6
+            channels = ['-ac', str(chan_no)]
+        else:
+            channels = None
+        cmd = ['-hwaccel', 'cuvid', '-i', old_file, '-map_chapters', '0', '-c:v', 'copy', '-map', '0:v:0']
+        if stream['codec'] == 'aac':
+            cmd += ['-c:a', 'copy', '-map', '0:a:' + str(stream['stream_no'])]
+        else:
+            cmd += ['-c:a', 'aac', '-aac_coder', 'twoloop', '-b:a',
+                    str(bitrate)] + channels + ['-map', '0:a:' + str(stream['stream_no'])]
+        if prober.has_text_subtitles():
+            cmd += ['-c:s', 'copy', '-map', '0:s?']
+        else:
+            cmd += ['-sn']
+        cmd += ['-metadata:s:a:' + str(stream['stream_no']), 'language=' + lang, new_file]
+        log(' '.join(cmd))
+        return cmd
+    return None
 
 
 def reencode(old_file, new_file):
-    prober = Prober(['-i', old_file])
-    stream = prober.get_best_audio_stream()
-    if stream is not None and stream['codec'] != 'aac':
-        bitrate = stream['bitrate'] if stream['bitrate'] is not None else '640k'
-        lang = stream['language'] if stream['language'] is not None else 'eng'
-        # -metadata:s:v:0 language=eng
-        cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-map_chapters', '0', '-c:v', 'copy', '-map', '0:v:0',
-               '-c:a', 'aac', '-aac_coder', 'twoloop', '-b:a', str(bitrate), '-map', '0:a:' + str(stream['stream_no']),
-               '-c:s', 'copy', '-map', '0:s?', '-metadata:s:a:' + str(stream['stream_no']), 'language=' + lang, new_file]
-        log(' '.join(cmd))
-        with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
-            while True:
-                buf = os.read(p_reencode.stdout.fileno(), 4096)
-                if buf == b'' and p_reencode.poll() is not None:
-                    break
-                sys.stdout.write(buf.decode(ENCODING))
-                sys.stdout.flush()
-            p_reencode.communicate()
-            if p_reencode.returncode == 0:
-                log('re-encoding done')
-    #                    Uploader(new_file).run()
-            else:
-                log('re-encoding failed')
+    if os.getenv('DISPLAY') is None:
+        ffmpeg = '/usr/bin/ffmpeg'
+        has_window_manager = False
+    else:
+        ffmpeg = '/usr/bin/pff'
+        has_window_manager = True
+    cmd = [ffmpeg] + get_cmd_params(old_file, new_file)
+    with subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE) as p_reencode:
+        BUF_LEN = 4096
+        read_fd = p_reencode.stdout.fileno() if has_window_manager else p_reencode.stderr.fileno()
+        while True:
+            buf = os.read(read_fd, BUF_LEN)
+            if buf == b'' and p_reencode.poll() is not None:
+                break
+            sys.stdout.write(buf.decode(ENCODING))
+            sys.stdout.flush()
+        p_reencode.communicate()
+        if p_reencode.returncode == 0:
+            log('re-encoding done')
+            Uploader(new_file).run()
+        else:
+            log('re-encoding failed')
 
 
 def main():

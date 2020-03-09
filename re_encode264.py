@@ -3,38 +3,17 @@ import os
 import re
 import subprocess
 import sys
-from threading import Lock, Thread
 
 from mpff import VALID_EXTENSIONS, get_file_extension
+from tools import Uploader, log
 
 ENCODING = 'utf8'
+FFMPEG = '/usr/bin/ffmpeg' if os.getenv('DISPLAY') is None else '/usr/bin/pff'
 RE_BITRATE = re.compile('bitrate: \\d+ [a-zA-Z]')
-
-YUP_stderr_lock = Lock()
-YUP_stderr = sys.stderr
-
-
-def log(log_item):
-    with YUP_stderr_lock:
-        YUP_stderr.write(str(log_item) + '\n')
-        YUP_stderr.flush()
 
 
 def usage():
     log('Usage: ' + sys.argv[0] + ' <mkv_file>\n')
-
-
-class Uploader(Thread):
-    def __init__(self, file):
-        Thread.__init__(self)
-        self.file = file
-
-    def run(self):
-        cmd = ['/home/dupa/tv/s_r2d2.sh', self.file]
-        try:
-            subprocess.run(cmd)
-        except Exception as e:
-            log(e)
 
 
 def get_bitrate(output):
@@ -64,8 +43,12 @@ def reencode(old_file, new_file):
         elif out is not None:
             br_data = get_bitrate(out)
         if br_data is not None:
-            cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow', '-rc', 'vbr_hq',
+            cmd = [FFMPEG, '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'h264_nvenc', '-preset', 'slow', '-rc', 'vbr_hq',
                    '-b:v', br_data[0], '-pix_fmt', 'yuv420p', '-maxrate:v', br_data[0], '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a',
+                   # '-c:s', 'copy', '-map', '0:s', '-map_chapters', '0', new_file]
+                   '-sn', '-map_chapters', '0', new_file]
+            cmd = ['/usr/bin/pff', '-hwaccel', 'cuvid', '-i', old_file, '-c:v', 'copy',
+                   '-map', '0:v:0', '-c:a', 'copy', '-map', '0:a',
                    # '-c:s', 'copy', '-map', '0:s', '-map_chapters', '0', new_file]
                    '-sn', '-map_chapters', '0', new_file]
             log(' '.join(cmd))

@@ -2,6 +2,8 @@ import json
 import os
 import re
 import subprocess
+import sys
+from threading import Lock, Thread
 
 import dbus
 
@@ -14,11 +16,42 @@ RE_STREAM = re.compile('Stream #\\d:\\d\\([a-z][a-z][a-z]\\): [a-zA-Z0-9_]+: [a-
 RE_AUDIO_CODECS_PRIORITY = ['truehd', 'dts', 'aac', 'eac3', 'ac3', 'mp3']
 PFF_BUS_NAME = os.getenv('PFF_BUS_NAME')
 PFF_OBJECT_PATH = os.getenv('PFF_OBJECT_PATH')
+RE_ENCODE_stderr_lock = Lock()
+RE_ENCODE_stderr = sys.stderr
+
+
+def log(log_item):
+    with RE_ENCODE_stderr_lock:
+        RE_ENCODE_stderr.write(str(log_item) + '\n')
+        RE_ENCODE_stderr.flush()
 
 
 def jl(obj):
     log_str = json.dumps(obj, sort_keys=True, indent=2, separators=(',', ': '))
-    print(log_str)
+    log(log_str)
+
+
+class Uploader(Thread):
+    def __init__(self, file):
+        Thread.__init__(self)
+        self.file = file
+
+    @staticmethod
+    def remove_dots(path):
+        dir = os.path.dirname(path)
+        base = os.path.basename(path)
+        idx = base.rfind('.')
+        renamed = ((dir + '/') if dir else '') + base[:idx].replace('.', '_') + base[idx:]
+        os.rename(path, renamed)
+        return renamed
+
+    def run(self):
+        file = Uploader.remove_dots(self.file)
+        cmd = ['/home/dupa/tv/s_r2d2.sh', file]
+        try:
+            subprocess.run(cmd)
+        except Exception as e:
+            log(e)
 
 
 class MediaContainer:
@@ -126,6 +159,7 @@ class Prober:
                     'language': self.get_stream_language(stream),
                     'type': stream['codec_type'],
                     'codec': stream['codec_name'],
+                    'channels': stream['channels'] if 'channels' in stream else None,
                     'bitrate': self.get_stream_bitrate(stream)
                 }
                 streams.append(media)
@@ -136,6 +170,14 @@ class Prober:
         streams = self.get_audio_streams()
         filtered = list(filter(lambda x: x['type'] == 'audio', streams))
         return sorted(filtered, key=lambda x: RE_AUDIO_CODECS_PRIORITY.index(x['codec']))[0]
+
+    def has_text_subtitles(self):
+        TEXT_CODECS = ['subrip']
+        self.get_data()
+        for stream in self._streams:
+            if stream['codec_type'] == 'subtitle' and stream['codec_name'] in TEXT_CODECS:
+                return True
+        return False
 
 
 class KDialogProgressBar:
