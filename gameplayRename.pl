@@ -43,6 +43,6 @@ if( opendir($dir,$tdir) )
 		$entry = $tdir.'/'.$entry;
 		$newentry = $tdir.'/'.$newentry;
 		print "$entry -> $newentry\n";
-		rename($entry,$newentry);
+        rename($entry,$newentry);
 	}
 }

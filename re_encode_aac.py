@@ -18,7 +18,7 @@ def get_cmd_params(old_file, new_file):
     stream = prober.get_best_audio_stream()
     if stream is not None:
         bitrate = stream['bitrate'] if stream['bitrate'] is not None else '640k'
-        if int(bitrate) > 640000:
+        if bitrate != '640k' and int(bitrate) > 640000:
             bitrate = '640k'
         lang = stream['language'] if stream['language'] is not None else 'eng'
         if stream['channels'] is not None:

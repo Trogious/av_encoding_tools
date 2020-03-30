@@ -47,7 +47,8 @@ do
     OUT_FILE_CONTAINER=$OUT_FILE
     # aac -b:a 640k -ac 6
     # -r 59.94
-    CMD="$NICE -n +19 $FFMPEG $LOG_LEVEL  -ss $START_SECS -t $DURATION_SECS -i $IN_FILE $TIME -map_metadata -1 -c:v copy $HDR -map 0:v:0 -c:a copy -map 0:a:$AUDIO_TRACK_NO -sn $NTS $OVERWRITE $OUT_FILE_CONTAINER"
+    #CMD="$NICE -n +19 $FFMPEG $LOG_LEVEL  -ss $START_SECS -t $DURATION_SECS -i $IN_FILE $TIME -map_metadata -1 -c:v copy $HDR -map 0:v:0 -c:a copy -map 0:a:$AUDIO_TRACK_NO -sn $NTS $OVERWRITE $OUT_FILE_CONTAINER"
+    CMD="$NICE -n +19 $FFMPEG $LOG_LEVEL  -ss $START_SECS -t $DURATION_SECS -i $IN_FILE $TIME -map_metadata -1 -c:v copy $HDR -map 0:v:0 -c:a aac -b:a 640k -ac 6 -map 0:a:$AUDIO_TRACK_NO -c:s copy -map 0:s $NTS $OVERWRITE $OUT_FILE_CONTAINER"
     echo $CMD
     echo
     $CMD
