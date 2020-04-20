@@ -8,6 +8,7 @@ from tools import Prober, Uploader, log
 
 ENCODING = 'utf8'
 COPY_CODECS = ['aac', 'ac3', 'eac3']
+AVT_UPLOADER_SCRIPT = os.getenv('AVT_UPLOADER_SCRIPT_PATH', '/home/dupa/tv/s_r2d2.sh')
 
 
 def usage():
@@ -65,7 +66,7 @@ def reencode(old_file, new_file):
         p_reencode.communicate()
         if p_reencode.returncode == 0:
             log('re-encoding done')
-            Uploader(new_file).run()
+            Uploader(new_file, AVT_UPLOADER_SCRIPT).run()
         else:
             log('re-encoding failed')
 

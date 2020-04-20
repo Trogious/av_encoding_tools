@@ -32,9 +32,10 @@ def jl(obj):
 
 
 class Uploader(Thread):
-    def __init__(self, file):
+    def __init__(self, file, uploader_script_path):
         Thread.__init__(self)
         self.file = file
+        self.uploader_script = uploader_script_path
 
     @staticmethod
     def remove_dots(path):
@@ -47,7 +48,7 @@ class Uploader(Thread):
 
     def run(self):
         file = Uploader.remove_dots(self.file)
-        cmd = ['/home/dupa/tv/s_r2d2.sh', file]
+        cmd = [self.uploader_script, file]
         try:
             subprocess.run(cmd)
         except Exception as e:
