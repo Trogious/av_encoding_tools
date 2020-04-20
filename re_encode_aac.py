@@ -7,6 +7,7 @@ from mpff import VALID_EXTENSIONS, get_file_extension
 from tools import Prober, Uploader, log
 
 ENCODING = 'utf8'
+COPY_CODECS = ['aac', 'ac3', 'eac3']
 
 
 def usage():
@@ -29,7 +30,7 @@ def get_cmd_params(old_file, new_file):
         else:
             channels = None
         cmd = ['-hwaccel', 'cuvid', '-i', old_file, '-map_chapters', '0', '-c:v', 'copy', '-map', '0:v:0']
-        if stream['codec'] == 'aac':
+        if stream['codec'] in COPY_CODECS:
             cmd += ['-c:a', 'copy', '-map', '0:a:' + str(stream['stream_no'])]
         else:
             cmd += ['-c:a', 'aac', '-aac_coder', 'twoloop', '-b:a',
@@ -78,7 +79,7 @@ def main():
         for orig_file_path in sys.argv[1:]:
             ext = get_file_extension(orig_file_path)
             if ext in VALID_EXTENSIONS and os.path.isfile(orig_file_path):
-                new_file_path = orig_file_path[:-len(ext)-1] + '_aac.mkv'
+                new_file_path = orig_file_path[:-len(ext)-1] + '_2aac.mkv'
                 try:
                     if os.path.exists(new_file_path):
                         log('output already exists: ' + new_file_path)
