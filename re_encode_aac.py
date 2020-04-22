@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import os
 import subprocess
 import sys
@@ -46,7 +47,7 @@ def get_cmd_params(old_file, new_file):
     return None
 
 
-def reencode(old_file, new_file):
+def reencode(old_file, new_file, upload):
     if os.getenv('DISPLAY') is None:
         ffmpeg = '/usr/bin/ffmpeg'
         has_window_manager = False
@@ -66,7 +67,8 @@ def reencode(old_file, new_file):
         p_reencode.communicate()
         if p_reencode.returncode == 0:
             log('re-encoding done')
-            Uploader(new_file, AVT_UPLOADER_SCRIPT).run()
+            if upload:
+                Uploader(new_file, AVT_UPLOADER_SCRIPT).run()
         else:
             log('re-encoding failed')
 
@@ -77,15 +79,28 @@ def main():
         usage()
     else:
         subprocess.run(['/sbin/modprobe', 'nvidia_uvm'])
-        for orig_file_path in sys.argv[1:]:
+        parser = argparse.ArgumentParser(prog=sys.argv[0])
+        parser.add_argument('-n', '--no-upload', action='store_true')
+        parser.add_argument('-r', '--remove-dots', action='store_true')
+        parser.add_argument('-t', '--target-dir')
+        parser.add_argument('files', nargs='+')
+        args = parser.parse_args(sys.argv[1:])
+        for orig_file_path in args.files:
             ext = get_file_extension(orig_file_path)
             if ext in VALID_EXTENSIONS and os.path.isfile(orig_file_path):
                 new_file_path = orig_file_path[:-len(ext)-1] + '_2aac.mkv'
+                if args.remove_dots:
+                    new_file_path = Uploader.get_with_dots_removed(new_file_path)
+                if args.target_dir:
+                    if os.path.isdir(args.target_dir):
+                        new_file_path = os.path.join(args.target_dir, os.path.basename(new_file_path))
+                    else:
+                        log('target dir does not exist: ' + args.target_dir)
                 try:
                     if os.path.exists(new_file_path):
                         log('output already exists: ' + new_file_path)
                     else:
-                        reencode(orig_file_path, new_file_path)
+                        reencode(orig_file_path, new_file_path, not args.no_upload)
                 except Exception as e:
                     log(e)
                     raise

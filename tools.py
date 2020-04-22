@@ -38,11 +38,16 @@ class Uploader(Thread):
         self.uploader_script = uploader_script_path
 
     @staticmethod
-    def remove_dots(path):
+    def get_with_dots_removed(path):
         dir = os.path.dirname(path)
         base = os.path.basename(path)
         idx = base.rfind('.')
         renamed = ((dir + '/') if dir else '') + base[:idx].replace('.', '_') + base[idx:]
+        return renamed
+
+    @staticmethod
+    def remove_dots(path):
+        renamed = Uploader.get_with_dots_removed(path)
         os.rename(path, renamed)
         return renamed
 
