@@ -14,6 +14,13 @@ Windows Registry Editor Version 5.00
 [HKEY_CLASSES_ROOT\SystemFileAssociations\.mp4\shell\GetDuration\command]
 @="\"C:\\Path\\To\\dur.exe\" \"%1\" --gui"
 
+[HKEY_CLASSES_ROOT\SystemFileAssociations\.mp4\shell\GetBitrate]
+@="Get BitRate"
+"Icon"="C:\\Windows\\System32\\shell32.dll,165"
+
+[HKEY_CLASSES_ROOT\SystemFileAssociations\.mp4\shell\GetBitrate\command]
+@="\"C:\\Path\\To\\dur.exe\" \"%1\" --gui --bitrate"
+
 [HKEY_CLASSES_ROOT\SystemFileAssociations\.webm\shell\GetDuration]
 @="Get Duration"
 "Icon"="C:\\Windows\\System32\\shell32.dll,165"
